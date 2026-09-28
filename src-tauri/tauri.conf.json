@@ -1,0 +1,43 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "WaterHelp",
+  "version": "1.0.0",
+  "identifier": "com.waterhelp.desktop",
+  "build": {
+    "frontendDist": "../ui"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "macOSPrivateApi": true,
+    "windows": [
+      {
+        "label": "panel",
+        "url": "index.html",
+        "width": 324,
+        "height": 540,
+        "decorations": false,
+        "transparent": true,
+        "resizable": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "shadow": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "category": "Healthcare",
+    "shortDescription": "喝水提醒助手",
+    "longDescription": "跨平台喝水提醒小工具：菜单栏/托盘水滴图标显示今日进度，定时系统通知一键打卡。",
+    "targets": ["app", "dmg", "nsis"],
+    "icon": [
+      "icons/icon.icns",
+      "icons/icon.ico",
+      "icons/icon.png"
+    ]
+  }
+}

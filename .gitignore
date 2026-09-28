@@ -1,0 +1,16 @@
+# Rust / Tauri
+src-tauri/target/
+src-tauri/waterhelp-universal
+src-tauri/gen/
+
+# Swift 旧版本构建产物
+legacy/macos-swift/.build/
+legacy/macos-swift/dist/
+
+# 本地打包产物（用 CI 或脚本重新生成）
+dist/
+
+# 杂项
+.DS_Store
+*.log
+tmp/

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>喝水助手</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <main id="panel">
+
+    <header>
+      <div class="title">
+        <svg width="16" height="18" viewBox="0 0 16 18">
+          <defs>
+            <linearGradient id="dropgrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#5ec2ff"/><stop offset="1" stop-color="#1573e6"/>
+            </linearGradient>
+          </defs>
+          <path d="M8 1 C8 1 2.4 8.2 2.4 12.1 a5.6 5.6 0 0 0 11.2 0 C13.6 8.2 8 1 8 1 Z" fill="url(#dropgrad)"/>
+        </svg>
+        <span>喝水助手</span>
+      </div>
+      <button id="pause-btn" class="pill" title="暂停或恢复提醒">⏸ 暂停 1 小时</button>
+    </header>
+
+    <section class="ring-wrap">
+      <div class="ring-box">
+        <svg width="124" height="124">
+          <defs>
+            <linearGradient id="ringgrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#5ec2ff"/><stop offset="1" stop-color="#1573e6"/>
+            </linearGradient>
+          </defs>
+          <circle id="ring-bg" cx="62" cy="62" r="55"/>
+          <circle id="ring-fg" cx="62" cy="62" r="55"/>
+        </svg>
+        <div class="ring-center">
+          <div id="pct">0%</div>
+          <div id="amount">0 / 2000 ml</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="quick-row">
+      <button class="quick" data-ml="100">+100ml</button>
+      <button class="quick" data-ml="250">+250ml</button>
+      <button class="quick" data-ml="500">+500ml</button>
+    </section>
+
+    <div class="divider"></div>
+
+    <section class="rows">
+      <div class="row">
+        <span class="label">下次提醒</span>
+        <span id="next-reminder" class="value dim">--:-- · --</span>
+      </div>
+      <div class="row">
+        <span class="label">提醒间隔</span>
+        <div class="seg" id="seg-interval">
+          <button data-min="30">30分</button>
+          <button data-min="45" class="on">45分</button>
+          <button data-min="60">60分</button>
+        </div>
+      </div>
+      <div class="row">
+        <span class="label">每日目标</span>
+        <div class="stepper">
+          <button id="goal-minus" class="step">−</button>
+          <span id="goal-num">2000 ml</span>
+          <button id="goal-plus" class="step">+</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <section class="row">
+      <span class="label">登录时自动启动</span>
+      <button id="autostart" class="switch" role="switch" aria-checked="false"></button>
+    </section>
+
+    <footer>
+      <span id="drink-count">今日已打卡 0 次</span>
+      <button id="quit-btn">退出喝水助手</button>
+    </footer>
+
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
