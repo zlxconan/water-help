@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>喝水助手</title>
+  <link rel="stylesheet" href="main.css">
+</head>
+<body>
+  <main>
+
+    <header>
+      <div class="brand">
+        <svg width="22" height="25" viewBox="0 0 16 18">
+          <defs>
+            <linearGradient id="dropgrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#5ec2ff"/><stop offset="1" stop-color="#1573e6"/>
+            </linearGradient>
+          </defs>
+          <path d="M8 1 C8 1 2.4 8.2 2.4 12.1 a5.6 5.6 0 0 0 11.2 0 C13.6 8.2 8 1 8 1 Z" fill="url(#dropgrad)"/>
+        </svg>
+        <div>
+          <h1>喝水助手</h1>
+          <p id="today-label">—</p>
+        </div>
+      </div>
+    </header>
+
+    <section class="card today">
+      <div class="ring-box">
+        <svg width="130" height="130">
+          <defs>
+            <linearGradient id="ringgrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#5ec2ff"/><stop offset="1" stop-color="#1573e6"/>
+            </linearGradient>
+          </defs>
+          <circle id="ring-bg" cx="65" cy="65" r="58"/>
+          <circle id="ring-fg" cx="65" cy="65" r="58"/>
+        </svg>
+        <div class="ring-center">
+          <div id="pct">0%</div>
+          <div id="amount">0 / 2000 ml</div>
+        </div>
+      </div>
+      <div class="today-side">
+        <div class="stat"><span id="count">0</span><label>今日打卡</label></div>
+        <div class="stat"><span id="remain">2000</span><label>还差(ml)</label></div>
+        <div class="quick-col">
+          <button class="quick" data-ml="100">+100ml</button>
+          <button class="quick" data-ml="250">+250ml</button>
+          <button class="quick" data-ml="500">+500ml</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card chart-card">
+      <h2>最近 14 天</h2>
+      <div class="chart" id="chart"></div>
+    </section>
+
+    <section class="card list-card">
+      <h2>历史记录</h2>
+      <div id="history-list"></div>
+    </section>
+
+  </main>
+  <script src="main.js"></script>
+</body>
+</html>

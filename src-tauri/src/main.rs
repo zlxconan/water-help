@@ -12,7 +12,7 @@ use serde::Serialize;
 use tauri::{
     AppHandle, Emitter, Manager, PhysicalPosition,
     menu::{Menu, MenuItem},
-    tray::{MouseButton, TrayIconBuilder, TrayIconEvent, MouseButtonState::*},
+    tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
 };
 
 /// 托盘图标的屏幕位置（点击时记录，用于把面板弹到图标旁边）
@@ -24,6 +24,10 @@ struct TrayRect {
     h: f64,
 }
 static TRAY_RECT: Mutex<Option<TrayRect>> = Mutex::new(None);
+/// 上次托盘左键点击时刻（防抖：macOS 可能同时派发按下/抬起两个事件）
+static LAST_TRAY_CLICK: Mutex<Option<std::time::Instant>> = Mutex::new(None);
+/// 面板最近一次显示时刻（刚显示的瞬间忽略失焦事件，避免被立即隐藏）
+static PANEL_SHOWN_AT: Mutex<Option<std::time::Instant>> = Mutex::new(None);
 
 struct Shared {
     model: Mutex<state::Model>,
@@ -45,7 +49,7 @@ fn now_ts() -> i64 {
 /// 修改模型后的统一收尾：持久化 + 刷新托盘图标 + 通知前端
 fn after_change(app: &AppHandle, progress_changed: bool) {
     let shared = app.state::<Shared>();
-    let model = shared.model.lock().unwrap();
+    let mut model = shared.model.lock().unwrap();
     model.save(&shared.data_dir);
     let progress = model.progress();
     drop(model);
@@ -64,6 +68,15 @@ fn refresh_tray_icon(app: &AppHandle, progress: f32) {
                 let _ = tray.set_icon(Some(img));
             }
         }
+    }
+}
+
+/// 打开主窗口（Dock/启动台/托盘菜单入口），点关闭按钮只隐藏不销毁
+fn show_main(app: &AppHandle) {
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.unminimize();
+        let _ = win.show();
+        let _ = win.set_focus();
     }
 }
 
@@ -89,6 +102,7 @@ fn toggle_panel(app: &AppHandle) {
     }
     let _ = panel.show();
     let _ = panel.set_focus();
+    *PANEL_SHOWN_AT.lock().unwrap() = Some(std::time::Instant::now());
 }
 
 /// 后台每秒心跳：跨天重置 / 暂停到点恢复 / 到点发通知
@@ -229,7 +243,7 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            None,
+            Some(vec!["--hidden"]), // 登录自启时静默启动，不弹主窗口
         ))
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
@@ -279,9 +293,17 @@ fn main() {
                 })
                 .ok();
             {
+                // 面板失焦自动收起（刚显示的 400ms 内忽略，避免显示瞬间被隐藏）
                 let app = app.handle().clone();
                 panel.on_window_event(move |event| {
                     if let tauri::WindowEvent::Focused(false) = event {
+                        let just_shown = PANEL_SHOWN_AT
+                            .lock()
+                            .unwrap()
+                            .map_or(false, |t| t.elapsed() < Duration::from_millis(400));
+                        if just_shown {
+                            return;
+                        }
                         if let Some(p) = app.get_webview_window("panel") {
                             let _ = p.hide();
                         }
@@ -289,12 +311,26 @@ fn main() {
                 });
             }
 
+            // 主窗口：点关闭只隐藏不销毁（下次从 Dock/启动台秒开）
+            if let Some(main_win) = app.get_webview_window("main") {
+                let app = app.handle().clone();
+                main_win.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        if let Some(w) = app.get_webview_window("main") {
+                            let _ = w.hide();
+                        }
+                    }
+                });
+            }
+
             // 托盘右键菜单
-            let open_item = MenuItem::with_id(app, "open", "打开面板", true, None::<&str>)?;
+            let open_main = MenuItem::with_id(app, "open_main", "打开喝水助手", true, None::<&str>)?;
+            let open_item = MenuItem::with_id(app, "open", "快捷面板", true, None::<&str>)?;
             let pause_item =
                 MenuItem::with_id(app, "pause", "暂停/恢复 1 小时", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "退出喝水助手", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&open_item, &pause_item, &quit_item])?;
+            let menu = Menu::with_items(app, &[&open_main, &open_item, &pause_item, &quit_item])?;
 
             let tray_icon = droplet::render_png(progress, droplet::detect_appearance())
                 .and_then(|png| tauri::image::Image::from_bytes(&png).ok())
@@ -307,6 +343,7 @@ fn main() {
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(move |app, event| match event.id.as_ref() {
+                    "open_main" => show_main(app),
                     "open" => toggle_panel(app),
                     "pause" => {
                         let shared = app.state::<Shared>();
@@ -319,28 +356,53 @@ fn main() {
                     _ => {}
                 })
                 .on_tray_icon_event(move |_, event| {
-                    if let TrayIconEvent::Click {
-                        button: MouseButton::Left,
-                        button_state: Up,
-                        rect,
-                        ..
-                    } = event
-                    {
-                        // rect 的 position/size 是 Physical/Logical 枚举，取出数值
-                        let (x, y) = match rect.position {
-                            tauri::Position::Physical(p) => (p.x as f64, p.y as f64),
-                            tauri::Position::Logical(p) => (p.x, p.y),
-                        };
-                        let (w, h) = match rect.size {
-                            tauri::Size::Physical(s) => (s.width as f64, s.height as f64),
-                            tauri::Size::Logical(s) => (s.width, s.height),
-                        };
-                        *TRAY_RECT.lock().unwrap() = Some(TrayRect { x, y, w, h });
+                    // 左键单击切换面板。不区分按下/抬起（平台行为不一），
+                    // 用 250ms 防抖避免一次点击触发两次切换。
+                    let should_toggle = match &event {
+                        TrayIconEvent::Click {
+                            button: MouseButton::Left,
+                            ..
+                        } => true,
+                        // 双击兜底（个别版本单击事件不派发）
+                        TrayIconEvent::DoubleClick {
+                            button: MouseButton::Left,
+                            ..
+                        } => true,
+                        _ => false,
+                    };
+                    if should_toggle {
+                        let now = std::time::Instant::now();
+                        let mut last = LAST_TRAY_CLICK.lock().unwrap();
+                        if last.map_or(false, |t| {
+                            now.duration_since(t) < Duration::from_millis(250)
+                        }) {
+                            return;
+                        }
+                        *last = Some(now);
+                        drop(last);
+
+                        if let TrayIconEvent::Click { rect, .. } = &event {
+                            // rect 的 position/size 是 Physical/Logical 枚举，取出数值
+                            let (x, y) = match rect.position {
+                                tauri::Position::Physical(p) => (p.x as f64, p.y as f64),
+                                tauri::Position::Logical(p) => (p.x, p.y),
+                            };
+                            let (w, h) = match rect.size {
+                                tauri::Size::Physical(s) => (s.width as f64, s.height as f64),
+                                tauri::Size::Logical(s) => (s.width, s.height),
+                            };
+                            *TRAY_RECT.lock().unwrap() = Some(TrayRect { x, y, w, h });
+                        }
                         toggle_panel(&app_handle);
                     }
                 })
                 .build(app)?;
 
+            // 用户手动启动（启动台/Dock/Finder）时打开主窗口；
+            // 登录自启带 --hidden 参数，静默常驻托盘。
+            if !std::env::args().any(|a| a == "--hidden") {
+                show_main(app.handle());
+            }
             start_ticker(app.handle().clone());
             Ok(())
         })
@@ -355,6 +417,12 @@ fn main() {
             fit_panel,
             quit
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running waterhelp");
+        .build(tauri::generate_context!())
+        .expect("error while building waterhelp")
+        .run(|app, event| {
+            // macOS：点击 Dock 图标重新打开主窗口
+            if let tauri::RunEvent::Reopen { .. } = event {
+                show_main(app);
+            }
+        });
 }

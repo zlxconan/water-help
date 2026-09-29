@@ -2,8 +2,17 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
 
+/// 单日历史记录
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DayRecord {
+    pub day: String, // yyyy-MM-dd
+    pub intake_ml: u32,
+    pub drink_count: u32,
+    pub goal_ml: u32,
+}
+
 /// 全部业务状态。持久化为 JSON（应用数据目录下的 state.json），
-/// 按日期键记录饮水量，跨天自动清零。
+/// 按日期键记录饮水量，跨天自动清零；history 保留最近 90 天。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Model {
     pub intake_ml: u32,
@@ -16,6 +25,9 @@ pub struct Model {
     pub next_reminder: i64,
     /// yyyy-MM-dd（本地时区），用于跨天重置
     pub day: String,
+    /// 最近若干天的历史（含今天，按日期升序）
+    #[serde(default)]
+    pub history: Vec<DayRecord>,
 }
 
 #[derive(Debug)]
@@ -41,6 +53,7 @@ impl Default for Model {
             paused_until: None,
             next_reminder: now_ts + 45 * 60,
             day: now.format("%Y-%m-%d").to_string(),
+            history: Vec::new(),
         }
     }
 }
@@ -79,12 +92,34 @@ impl Model {
         }
     }
 
-    pub fn save(&self, dir: &Path) {
+    pub fn save(&mut self, dir: &Path) {
+        self.upsert_today_history();
         let file = dir.join("state.json");
         if let Ok(text) = serde_json::to_string_pretty(self) {
             if let Err(e) = fs::write(&file, text) {
                 eprintln!("waterhelp: 保存状态失败 {e}");
             }
+        }
+    }
+
+    /// 把今天的记录并入历史（upsert），保留最近 90 天
+    fn upsert_today_history(&mut self) {
+        let rec = DayRecord {
+            day: self.day.clone(),
+            intake_ml: self.intake_ml,
+            drink_count: self.drink_count,
+            goal_ml: self.goal_ml,
+        };
+        match self.history.iter_mut().find(|r| r.day == self.day) {
+            Some(slot) => *slot = rec,
+            None => {
+                self.history.push(rec);
+                self.history.sort_by(|a, b| a.day.cmp(&b.day));
+            }
+        }
+        if self.history.len() > 90 {
+            let drop = self.history.len() - 90;
+            self.history.drain(0..drop);
         }
     }
 

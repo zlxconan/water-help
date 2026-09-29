@@ -11,6 +11,17 @@
     "macOSPrivateApi": true,
     "windows": [
       {
+        "label": "main",
+        "url": "main.html",
+        "title": "喝水助手",
+        "width": 460,
+        "height": 700,
+        "minWidth": 400,
+        "minHeight": 560,
+        "visible": false,
+        "resizable": true
+      },
+      {
         "label": "panel",
         "url": "index.html",
         "width": 324,
