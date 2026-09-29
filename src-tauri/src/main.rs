@@ -420,9 +420,14 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error while building waterhelp")
         .run(|app, event| {
-            // macOS：点击 Dock 图标重新打开主窗口
+            // macOS：点击 Dock 图标重新打开主窗口（Reopen 事件仅 macOS 存在）
+            #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Reopen { .. } = event {
                 show_main(app);
+            }
+            #[cfg(not(target_os = "macos"))]
+            {
+                let _ = (app, event);
             }
         });
 }
