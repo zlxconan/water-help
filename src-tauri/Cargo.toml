@@ -4,7 +4,7 @@ version = "1.0.0"
 description = "💧 喝水助手 - 跨平台菜单栏/托盘喝水提醒 (macOS / Windows)"
 authors = ["WaterHelp Contributors"]
 license = "MIT"
-repository = "https://github.com/waterhelp/water-help"
+repository = "https://github.com/zlxconan/water-help"
 edition = "2021"
 rust-version = "1.77"
 
